@@ -25,3 +25,10 @@ OverTheWire - Natas:
   * {{ post.date | date_to_string }} &raquo; [ {{ post.title }} ]({{ post.url }})
   {% endif %}
 {% endfor %}
+
+Other:
+{% for post in sorted_posts %}
+  {% if post.title contains "Other" %}
+  * {{ post.date | date_to_string }} &raquo; [ {{ post.title }} ]({{ post.url }})
+  {% endif %}
+{% endfor %}
