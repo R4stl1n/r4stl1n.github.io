@@ -1,6 +1,6 @@
 ---
 layout: post
-title: OWASP Hackademic
+title: Other - OWASP Hackademic
 ---
 
 Site: <a href="https://www.owasp.org/index.php/OWASP_Hackademic_Challenges_Project">OWASP - Hackademic</a> <br>
