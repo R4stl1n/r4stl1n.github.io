@@ -39,14 +39,14 @@ have a root ca generated you can utilize your own.
 We create a easy-rsa folder in our openvpn folder and copy over the scripts.
 
 {% highlight bash %}
-sudo mkdir /etc/openvpn/easy-rsa
-sudo cp -r /usr/share/easy-rsa/* /etc/openvpn/easy-rsa
+ubuntu@firewall:~$ sudo mkdir /etc/openvpn/easy-rsa
+ubuntu@firewall:~$ sudo cp -r /usr/share/easy-rsa/* /etc/openvpn/easy-rsa
 {% endhighlight %}
 
 Now we are going to modify the file titled "vars" in /etc/openvpn/easy-rsa/vars
 
 {% highlight bash %}
-sudo nano /etc/openvpn/easy-rsa/vars
+ubuntu@firewall:~$ sudo nano /etc/openvpn/easy-rsa/vars
 {% endhighlight %}
 
 In this file you will want to modify the following variables. Within the file.
@@ -67,11 +67,11 @@ For ease of use we will also drop into a root terminal session. When running the
 build-ca command you will be prompted for information.
 
 {% highlight bash %}
-sudo su
-cd /etc/openvpn/easy-rsa
-source vars
-./clean-all
-./build-ca
+ubuntu@firewall:~$ sudo bash
+root@firewall:~# cd /etc/openvpn/easy-rsa
+root@firewall:/etc/openvpn/easy-rsa# source vars
+root@firewall:/etc/openvpn/easy-rsa# ./clean-all
+root@firewall:/etc/openvpn/easy-rsa# ./build-ca
 {% endhighlight %}
 
 You should now have to files in the keys directory ca.crt and ca.key.
@@ -84,34 +84,34 @@ __Note: Make sure when it asks if you want to sign the certificate that you sign
 or else there will be problems__
 
 {% highlight bash %}
-./build-key-server MyVpnServerCert
+root@firewall:/etc/openvpn/easy-rsa# ./build-key-server MyVpnServerCert
 {% endhighlight %}
 
 Now that we have that configured we need to generate our Diffie-Hellman parameters
 file.
 
 {% highlight bash %}
-./build-dh
+root@firewall:/etc/openvpn/easy-rsa# ./build-dh
 {% endhighlight %}
 
 Finally the last thing we need to generate a shared secret file to help prevent
 against DDOS and other Nasty things.
 
 {% highlight bash %}
-openvpn --genkey --secret ta.key
+root@firewall:/etc/openvpn/easy-rsa# openvpn --genkey --secret ta.key
 {% endhighlight %}
 
 Now we copy these files we have generated to the /etc/openvpn/certs folder.
 
 {% highlight bash %}
-mkdir /etc/openvpn/certs
-cd keys
-cp ca.crt /etc/openvpn/certs/
-cp MyVpnServerCert.crt /etc/openvpn/certs/
-cp MyVpnServerCert.key /etc/openvpn/certs/
-cp dh2048.pem /etc/openvpn/certs/
-cp ta.key /etc/openvpn/certs/
-cd ../
+root@firewall:/etc/openvpn/easy-rsa# mkdir /etc/openvpn/certs
+root@firewall:/etc/openvpn/easy-rsa/keys# cd keys
+root@firewall:/etc/openvpn/easy-rsa/keys# cp ca.crt /etc/openvpn/certs/
+root@firewall:/etc/openvpn/easy-rsa/keys# cp MyVpnServerCert.crt /etc/openvpn/certs/
+root@firewall:/etc/openvpn/easy-rsa/keys# cp MyVpnServerCert.key /etc/openvpn/certs/
+root@firewall:/etc/openvpn/easy-rsa/keys# cp dh2048.pem /etc/openvpn/certs/
+root@firewall:/etc/openvpn/easy-rsa/keys# cp ta.key /etc/openvpn/certs/
+root@firewall:/etc/openvpn/easy-rsa/keys# cd ../
 {% endhighlight %}
 
 ##### Step 3
@@ -121,15 +121,14 @@ Now we need to configure the openvpn server itself. First we will copy the examp
 configuration file for openvpn to our openvpn folder.
 
 {% highlight bash %}
-cd /etc/openvpn
-cp /usr/share/doc/openvpn/examples/sample-config-files/server.conf.gz .
-gunzip -d server.conf.gz
+root@firewall:/etc/openvpn/easy-rsa# cd /etc/openvpn
+root@firewall:/etc/openvpn# gunzip -d server.conf.gz
 {% endhighlight %}
 
 A file named "server.conf" should be in /etc/openvpn.
 There is quite a few changes we must make to this.
 {% highlight bash %}
-nano server.conf
+root@firewall:/etc/openvpn# nano server.conf
 {% endhighlight %}
 
 **First we have to set the correct protocol**
@@ -253,7 +252,7 @@ as a router.
 Run the following command to enable ip_forwarding
 
 {% highlight bash %}
-echo "1" > /proc/sys/net/ipv4/ip_forward
+root@firewall:/etc/openvpn# echo "1" > /proc/sys/net/ipv4/ip_forward
 {% endhighlight %}
 
 Now the iptables to allow our packets to be forward to the correct destination.
@@ -262,10 +261,10 @@ __Note: the eth1 interface is important in the POSTROUTING if you pick the wrong
 interface you will not be able to communicate with the private network__
 
 {% highlight bash %}
-iptables -A FORWARD -m state --state RELATED,ESTABLISHED -j ACCEPT
-iptables -A FORWARD -s 192.168.100.0/24 -j ACCEPT
-iptables -A FORWARD -j REJECT
-iptables -t nat -A POSTROUTING -s 192.168.100.0/24 -o eth1 -j MASQUERADE
+root@firewall:/etc/openvpn# iptables -A FORWARD -m state --state RELATED,ESTABLISHED -j ACCEPT
+root@firewall:/etc/openvpn# iptables -A FORWARD -s 192.168.100.0/24 -j ACCEPT
+root@firewall:/etc/openvpn# iptables -A FORWARD -j REJECT
+root@firewall:/etc/openvpn# iptables -t nat -A POSTROUTING -s 192.168.100.0/24 -o eth1 -j MASQUERADE
 {% endhighlight %}
 
 **Now we just need to make it permanent.**
@@ -273,7 +272,7 @@ iptables -t nat -A POSTROUTING -s 192.168.100.0/24 -o eth1 -j MASQUERADE
 First to ensure that ip forwarding is always enabled we need to modify the sysctl configuration.
 
 {% highlight bash %}
-sudo nano /etc/sysctl.conf
+root@firewall:/etc/openvpn# nano /etc/sysctl.conf
 {% endhighlight %}
 
 Find the following line
@@ -292,7 +291,7 @@ net.ipv4.ip_forward=1
 We achieve this by doing it the lazy way. By modifying our /etc/rc.local file.
 
 {% highlight bash %}
-sudo nano /etc/rc.local
+root@firewall:/etc/openvpn# nano /etc/rc.local
 {% endhighlight %}
 
 Find the following line.
@@ -321,33 +320,33 @@ certificate signed by our vpn certificate. You will be prompted for information.
 __Note: You can change TestClient to whatever you want.__
 __Note: Make sure to sign the certificate.__
 {% highlight bash %}
-sudo bash
-cd /etc/openvpn/easy-rsa
-source vars
-./build-key TestClient
-exit
+ubuntu@firewall:~$ sudo bash
+root@firewall:~# cd /etc/openvpn/easy-rsa
+root@firewall:/etc/openvpn/easy-rsa# source vars
+root@firewall:/etc/openvpn/easy-rsa# ./build-key TestClient
+root@firewall:/etc/openvpn/easy-rsa# exit
 {% endhighlight %}
 
 Now we copy them to a folder in our home directory
 
 {% highlight bash %}
-mkdir ~/TestClient
-cd keys
-cp ca.crt ~/TestClient
-cp TestClient.crt ~/TestClient
-cp TestClient.key ~/TestClient
-cp ta.key ~/TestClient
+ubuntu@firewall:~$ mkdir ~/TestClient
+ubuntu@firewall:~$ cd /etc/openvpn/easy-rsa/keys
+ubuntu@firewall:~$ sudo cp ca.crt ~/TestClient
+ubuntu@firewall:~$ sudo cp TestClient.crt ~/TestClient
+ubuntu@firewall:~$ sudo cp TestClient.key ~/TestClient
+ubuntu@firewall:~$ sudo cp ta.key ~/TestClient
 {% endhighlight %}
 
 Now we need to copy the sample client configuration file and modify it.
 
 {% highlight bash %}
-cd ~/TestClient
-cp /usr/share/doc/openvpn/examples/sample-config-files/client.conf .
+ubuntu@firewall:~$ cd ~/TestClient
+ubuntu@firewall:~$ cp /usr/share/doc/openvpn/examples/sample-config-files/client.conf .
 {% endhighlight %}
 
 {% highlight bash %}
-nano client.conf
+ubuntu@firewall:~$ nano client.conf
 {% endhighlight %}
 
 **First we set the correct protocol**
@@ -414,3 +413,8 @@ tls-auth ta.key 1
 After that the client configuration files are ready to go.
 
 That's it if everything works out well the openvpn server will be configured.
+Permissions will have to be changed on the files in the ~/TestClient folder.
+
+{% highlight bash %}
+ubuntu@firewall:~$ sudo chown -R user:user ~/TestClient
+{% endhighlight %}
