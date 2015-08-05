@@ -27,7 +27,7 @@ your public network with a public ip associated with it to act as the firewall/v
 First thing that must be done is installing the required packages.
 
 {% highlight bash %}
-sudo apt-get install openvpn easy-rsa
+ubuntu@firewall:~$ sudo apt-get install openvpn easy-rsa
 {% endhighlight %}
 
 ##### Step 2
