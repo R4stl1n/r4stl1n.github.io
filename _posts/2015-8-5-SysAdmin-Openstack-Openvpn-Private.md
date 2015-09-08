@@ -3,6 +3,8 @@ layout: post
 title: SysAdmin - Configure OpenVpn within Openstack To Private Network
 ---
 
+__Updated__: Added how to enable the pam plugin for openvpn
+
 Recently I have been digging deep into openstack and came across a personal
 need to gain access to private network configured within openstack from my external
 machine. Rather than giving each machine a floating ip. Below is the simple
@@ -122,6 +124,7 @@ configuration file for openvpn to our openvpn folder.
 
 {% highlight bash %}
 root@firewall:/etc/openvpn/easy-rsa# cd /etc/openvpn
+root@firewall:/etc/openvpn# cp /usr/share/doc/openvpn/examples/sample-config-files/server.conf.gz .
 root@firewall:/etc/openvpn# gunzip -d server.conf.gz
 {% endhighlight %}
 
@@ -131,7 +134,14 @@ There is quite a few changes we must make to this.
 root@firewall:/etc/openvpn# nano server.conf
 {% endhighlight %}
 
-**First we have to set the correct protocol**
+**First we enable the openvpn pam plugin*
+
+At the top of the file add the following line
+{% highlight bash %}
+plugin /usr/lib/openvpn/openvpn-plugin-auth-pam.so openvpn
+{% endhighlight %}
+
+**Next we have to set the correct protocol**
 
 By default it is set to udp which is fine for most networks. However certain
 providers have a problem with udp tunneled traffic dropping. Because of this
@@ -154,6 +164,7 @@ proto tcp
 Find the following two lines.
 
 {% highlight bash %}
+ca ca.crt
 cert server.crt
 key server.key
 {% endhighlight %}
@@ -161,6 +172,7 @@ key server.key
 Change them to the following
 
 {% highlight bash %}
+ca certs/ca.crt
 cert certs/MyVpnServerCert.crt
 key certs/MyVpnServerCert.key
 {% endhighlight %}
@@ -207,6 +219,21 @@ Under that line add the following line.
 push "route 192.168.1.0 255.255.255.0"
 {% endhighlight %}
 
+**Next we enable the duplicate cn**
+
+This allows us to issue one client cert that is reused by others. We do this so we only need to hand out one set of client certificates.
+
+Find the following line
+
+{% highlight bash %}
+;duplicate-cn
+{% endhighlight %}
+
+Change it to the following
+{% highlight bash %}
+duplicate-cn
+{% endhighlight %}
+
 **Next just need to enable the shared secret**
 
 Find the following line.
@@ -242,6 +269,28 @@ service openvpn start
 {% endhighlight %}
 
 ##### Step 5
+
+We need to create the pam service file and user group for our openvpn users.
+
+{% highlight bash %}
+root@firewall:/etc/openvpn# touch /etc/pam.d/openvpn
+root@firewall:/etc/openvpn# nano /etc/pam.d/openvpn
+{% endhighlight %}
+
+Now we add the following two lines inside our openvpn service file
+
+{% highlight bash %}
+auth    required        pam_unix.so    shadow    nodelay
+account required        pam_unix.so
+{% endhighlight %}
+
+Close the file then run the following command
+
+{% highlight bash %}
+groupadd openvpn
+{% endhighlight %}
+
+##### Step 6
 - - - - - - -
 
 To finish the server configuration we need to allow for our vpn server to act
@@ -311,37 +360,36 @@ iptables -t nat -A POSTROUTING -s 192.168.100.0/24 -o eth1 -j MASQUERADE
 
 Save the file and thats it server is configured and will survive a reboot.
 
-##### Step 6
+##### Step 7
 - - - - - - -
 
-For each user we wish to allow onto our vpn we will have to generate a separate
-certificate signed by our vpn certificate. You will be prompted for information.
+We will now create the certificate that we will hand our clients.
 
-__Note: You can change TestClient to whatever you want.__
+__Note: You can change ClientCert to whatever you want.__
 __Note: Make sure to sign the certificate.__
 {% highlight bash %}
 ubuntu@firewall:~$ sudo bash
 root@firewall:~# cd /etc/openvpn/easy-rsa
 root@firewall:/etc/openvpn/easy-rsa# source vars
-root@firewall:/etc/openvpn/easy-rsa# ./build-key TestClient
+root@firewall:/etc/openvpn/easy-rsa# ./build-key ClientCert
 root@firewall:/etc/openvpn/easy-rsa# exit
 {% endhighlight %}
 
 Now we copy them to a folder in our home directory
 
 {% highlight bash %}
-ubuntu@firewall:~$ mkdir ~/TestClient
+ubuntu@firewall:~$ mkdir ~/ClientConf
 ubuntu@firewall:~$ cd /etc/openvpn/easy-rsa/keys
-ubuntu@firewall:~$ sudo cp ca.crt ~/TestClient
-ubuntu@firewall:~$ sudo cp TestClient.crt ~/TestClient
-ubuntu@firewall:~$ sudo cp TestClient.key ~/TestClient
-ubuntu@firewall:~$ sudo cp ta.key ~/TestClient
+ubuntu@firewall:~$ sudo cp ca.crt ~/ClientConf
+ubuntu@firewall:~$ sudo cp ClientCert.crt ~/ClientConf
+ubuntu@firewall:~$ sudo cp ClientCert.key ~/ClientConf
+ubuntu@firewall:~$ sudo cp ta.key ~/ClientConf
 {% endhighlight %}
 
 Now we need to copy the sample client configuration file and modify it.
 
 {% highlight bash %}
-ubuntu@firewall:~$ cd ~/TestClient
+ubuntu@firewall:~$ cd ~/ClientConf
 ubuntu@firewall:~$ cp /usr/share/doc/openvpn/examples/sample-config-files/client.conf .
 {% endhighlight %}
 
@@ -395,7 +443,7 @@ cert TestClient.crt
 key TestClient.key
 {% endhighlight %}
 
-**Finally we enable the shared secret**
+**Next we enable the shared secret**
 
 Find the following line
 
@@ -410,11 +458,35 @@ Change it to the following
 tls-auth ta.key 1
 {% endhighlight %}
 
-After that the client configuration files are ready to go.
+**Finally we enable the pam module**
 
-That's it if everything works out well the openvpn server will be configured.
-Permissions will have to be changed on the files in the ~/TestClient folder.
+Add the following line to the bottom of the config
 
 {% highlight bash %}
-ubuntu@firewall:~$ sudo chown -R user:user ~/TestClient
+auth-user-pass
 {% endhighlight %}
+
+All thats left from here is to create our openvpn user
+
+__Note: We do this for each unique user we want to have access to the vpn__
+
+__Note: We set their shell to /bin/false so they do not have ssh access__
+
+__Note: You can set TestUser to whatever you want__
+
+{% highlight bash %}
+ubuntu@firewall:~$ sudo bash
+root@firewall:~# useradd -g "openvpn" -s /bin/false TestUser
+root@firewall:~# passwd TestUser
+{% endhighlight %}
+
+
+That's it if everything works out well the openvpn server will be configured.
+Permissions will have to be changed on the files in the ~/ClientConf folder.
+
+{% highlight bash %}
+ubuntu@firewall:~$ sudo chown -R user:user ~/ClientConf
+ubuntu@firewall:~$ tar -czf ClientConf.tar.gz ~/ClientConf
+{% endhighlight %}
+
+Now hand your client the ClientConf.tar.gz and the username/password you create for them. 
