@@ -287,7 +287,7 @@ account required        pam_unix.so
 Close the file then run the following command
 
 {% highlight bash %}
-groupadd openvpn
+root@firewall:/etc/openvpn#groupadd openvpn
 {% endhighlight %}
 
 ##### Step 6
